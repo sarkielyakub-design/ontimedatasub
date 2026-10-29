@@ -1,0 +1,1 @@
+export default function Brand({ light = false }: { light?: boolean }) { return <a className="brand" href="/" style={light ? { color: "#fff" } : undefined}><span className="brand-mark">O</span><span>ONTIME<small>SUBDATA LTD</small></span></a>; }
