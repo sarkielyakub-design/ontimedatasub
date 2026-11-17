@@ -50,8 +50,53 @@ export default function Dashboard({admin=false}:{admin?:boolean}){
  async function updateUserStatus(){if(!token||!targetId.trim())return;setBusy(true);setNotice("");setError("");try{const r=await api<any>(`/admin/users/${encodeURIComponent(targetId.trim())}/status`,{method:"PATCH",body:JSON.stringify({is_active:targetActive})},token);setNotice(r?.message||`Customer status updated to ${targetActive?"active":"inactive"}.`);await load(token,"users");}catch(e:any){setError(e.message)}finally{setBusy(false)}}
  async function updateWalletStatus(){if(!token||!targetId.trim())return;setBusy(true);setNotice("");setError("");try{const r=await api<any>(`/admin/wallets/${encodeURIComponent(targetId.trim())}/status`,{method:"PATCH",body:JSON.stringify({status:targetActive?"active":"inactive"})},token);setNotice(r?.message||`Wallet status updated to ${targetActive?"active":"inactive"}.`);await load(token,"wallets");}catch(e:any){setError(e.message)}finally{setBusy(false)}}
  async function adjustWallet(direction:"credit"|"debit"){if(!token||!targetId.trim()||!adjustAmount||!adjustReference.trim())return;setBusy(true);setNotice("");setError("");try{const r=await api<any>(`/admin/wallets/${encodeURIComponent(targetId.trim())}/${direction}`,{method:"POST",body:JSON.stringify({amount:Number(adjustAmount),reference:adjustReference.trim(),transaction_type:"admin_adjustment",description:adjustDescription.trim()||`Admin wallet ${direction}`})},token);setNotice(r?.message||`Wallet ${direction} request completed. Check the ledger.`);setAdjustAmount("");setAdjustReference("");setAdjustDescription("");await load(token,"wallets");}catch(e:any){setError(e.message)}finally{setBusy(false)}}
- async function initializeDeposit(e:React.FormEvent){e.preventDefault();if(!token)return;setBusy(true);setNotice("");setError("");try{const r=await api<any>("/monnify/deposit/initialize",{method:"POST",body:JSON.stringify({amount:Number(depositAmount)})},token);const checkout=r?.data?.checkout_url;if(!checkout)throw new Error("The API did not return a checkout URL.");window.location.href=checkout;}catch(e:any){setError(e.message)}finally{setBusy(false)}}
- async function verifyDeposit(e:React.FormEvent){e.preventDefault();if(!token)return;setBusy(true);setNotice("");setError("");try{const r=await api<any>("/monnify/deposit/verify",{method:"POST",body:JSON.stringify({payment_reference:paymentReference.trim()})},token);setNotice(r?.message||"Deposit verification request completed. Refresh your wallet to confirm the balance.");setPaymentReference("");await load(token,"wallet");}catch(e:any){setError(e.message)}finally{setBusy(false)}}
+ async function initializeDeposit(e:React.FormEvent){
+  e.preventDefault();
+
+  if(!token) return;
+
+  setBusy(true);
+  setNotice("");
+  setError("");
+
+  try {
+    const r = await api<any>(
+      "/monnify/deposit/initialize",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          amount: Number(depositAmount)
+        })
+      },
+      token
+    );
+
+    const checkout = r?.data?.checkout_url;
+    const reference = r?.data?.reference;
+
+    if(!checkout || !reference){
+      throw new Error(
+        "The API did not return a checkout URL and payment reference."
+      );
+    }
+
+    // Save reference before leaving ONTIME.
+    sessionStorage.setItem(
+      "ontime-pending-deposit-reference",
+      reference
+    );
+
+    // Redirect to Monnify.
+    window.location.href = checkout;
+
+  } catch(e:any) {
+    setError(
+      e.message || "Unable to initialize wallet deposit."
+    );
+
+    setBusy(false);
+  }
+}async function verifyDeposit(e:React.FormEvent){e.preventDefault();if(!token)return;setBusy(true);setNotice("");setError("");try{const r=await api<any>("/monnify/deposit/verify",{method:"POST",body:JSON.stringify({payment_reference:paymentReference.trim()})},token);setNotice(r?.message||"Deposit verification request completed. Refresh your wallet to confirm the balance.");setPaymentReference("");await load(token,"wallet");}catch(e:any){setError(e.message)}finally{setBusy(false)}}
  async function loadPlans(){if(!token)return;setBusy(true);setError("");try{const result=await api<any>("/bigisub/data/plans",{},token);let r=rowsOf(result);setPlans(r);if(!r.length)setNotice("The API returned no data plans.");}catch(e:any){setError(e.message)}finally{setBusy(false)}}
  async function verifyElectricity(e:React.FormEvent){e.preventDefault();if(!token)return;setBusy(true);setNotice("");setError("");try{const r=await api<any>("/bigisub/electricity/verify",{method:"POST",body:JSON.stringify({company:electricity.company,meter_no:electricity.meter_no,meter_type:electricity.meter_type})},token);setNotice(`Meter verification response: ${JSON.stringify(r.data||r)}`)}catch(e:any){setError(e.message)}finally{setBusy(false)}}
  async function buyElectricity(e:React.FormEvent){e.preventDefault();if(!token)return;setBusy(true);setNotice("");setError("");try{const r=await api<any>("/bigisub/electricity/purchase",{method:"POST",body:JSON.stringify(electricity)},token);setNotice(r?.message||"Electricity purchase request submitted. Check transaction history for status.");setElectricity(p=>({...p,transaction_pin:""}));}catch(e:any){setError(e.message)}finally{setBusy(false)}}
